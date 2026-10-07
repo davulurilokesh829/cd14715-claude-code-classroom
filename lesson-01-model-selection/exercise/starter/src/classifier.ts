@@ -32,33 +32,35 @@ async function callClaude(modelKey: ModelKey, system: string, userMessage: strin
   //  const rawResponse = await client.messages.create({ ... });
   //  const response = ensureParsedResponse(rawResponse as any); // Required for Vocareum
 
+  const rawresponse = await client.messages.create({
+    model: model.id,
+    max_tokens: 1024,
+    mesaages: [{ role: "user", content: userMessage }],
+  });
+
+  const response = ensureParsedResponse(rawResponse as any);
+
   const ms = Date.now() - start;
-  const inputTokens = 0;
-  const outputTokens = 0;
+  const inputTokens = response.usage?.input_tokens || 0;
+  const outputTokens = response.usage?.output_tokens || 0;
 
   const cost = calculateCost(inputTokens, outputTokens, model);
 
-
-  const text = "";
+  const text = response.content[0].type === "text" ? response.content[0].text : "";
 
   return { text, inputTokens, outputTokens, ms, cost };
 }
-
 // -----------------------------------------------------------------------------
 // Step 1: Haiku - Fast classification for simple tickets
 // -----------------------------------------------------------------------------
 
-async function testHaiku() {
-  console.log(`\n---  Haiku for Simple Classification ---\n`);
+export async function testHaiku() {
+  console.log("\n--- STEP 1: Testing Haiku (Simple Classification) ---");
 
-  // TODO: Define system prompt
-  // Goal: Classify support ticket priority as: LOW, MEDIUM, HIGH, or URGENT
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = "You are a support ticket classifier. Classify the ticket's priority level as ONLY one of: LOW, MEDIUM, HIGH, or URGENT. Output only the word.";
 
-  // TODO: Call Claude with Haiku model
-  const result = null; // Replace with API call
+  const result = await callClaude("haiku", system, TICKETS.simple.description);
 
-  // TODO: Display results
   console.log(`Result: ${result.text}`);
   logStats(result);
 
@@ -72,20 +74,15 @@ async function testHaiku() {
 async function testSonnet() {
   console.log("\n---  Sonnet for Detailed Analysis ---\n");
 
-  // TODO: Define system prompt
-  // Goal: Analyze the support ticket and extract:
-  //   1. Priority level
-  //   2. Issue category
-  //   3. Key details
-  //   4. Recommended action
-  // Keep response concise
-  const system = `YOUR SYSTEM PROMPT HERE`;
+  const system = `Analyze the support ticket and provide:
+1. Priority level (LOW, MEDIUM, HIGH, URGENT)
+2. Issue category
+3. Key details
+4. Recommended action
+Keep your response concise.`;
 
-  // TODO: Call Claude with Sonnet model
-  // Use: callClaude("sonnet", system, TICKETS.moderate)
-  const result = null; // Replace with API call
+  const result = await callClaude("sonnet", system, TICKETS.moderate.description);
 
-  // TODO: Display results
   console.log(`Result:\n${result.text}`);
   logStats(result);
 
@@ -99,19 +96,21 @@ async function testSonnet() {
 async function testOpus() {
   console.log("\n---  Opus for Complex Reasoning ---\n");
 
+  const system = `You are a senior support manager. Perform a thorough analysis of this support ticket and provide:
+
   // TODO: Define system prompt
   // Goal: Act as a senior support manager and provide:
-  //   1. Issue summary
-  //   2. Root cause hypothesis for each issue
-  //   3. Impact assessment (business, technical)
-  //   4. Prioritized action plan
-  // Encourage thorough thinking
-  const system = `YOUR SYSTEM PROMPT HERE`;
+1. Issue summary
+2. Root cause hypothesis for each issue
+3. Impact assessment (business, technical)
+4. Prioritized action plan
 
+  // Encourage thorough thinking
   // TODO: Call Claude with Opus model
   // Use: callClaude("opus", system, TICKETS.complex)
-  const result = null; // Replace with API call
-
+  
+  const result = await callClaude("opus", system, TICKETS.complex.description);
+  
   // TODO: Display results
   console.log(`Result:\n${result.text}`);
   logStats(result);
@@ -126,22 +125,35 @@ async function testOpus() {
 async function testCompare() {
   console.log("\n---  Model Comparison ---\n");
 
+  const system = `Analyze the support ticket and provide:
+
+
   // TODO: Define system prompt for comparison
   // Goal: Analyze ticket and provide:
-  //   1. Priority (low/medium/high/urgent)
-  //   2. Main issue
-  //   3. One recommended action
-  const system = `YOUR SYSTEM PROMPT HERE`;
-
+1. Priority (low/medium/high/urgent)
+2. Main issue
+3. One recommended action
+  
+  const modelsToCompare: ModelKey[] = ["haiku", "sonnet", "opus"];
+  const results = [];
+  
   // TODO: Call all three models with the same task
   // Loop through: ["haiku", "sonnet", "opus"]
   // Store results in array with: { model, text, ms, inputTokens, outputTokens, cost }
-  const results = [];
   // YOUR CODE HERE
+  for (const modelKey of modelsToCompare) {
+    const res = await callClaude(modelKey, system, TICKETS.moderate.description);
+    results.push({
+      model: modelKey,
+      text: res.text,
+      ms: res.ms,
+      inputTokens: res.inputTokens,
+      outputTokens: res.outputTokens,
+      cost: res.cost,
+    });
+  }
 
-  // TODO: Display comparison table
   displayComparison(results);
-  // Note: displayComparison() function handles the table formatting
 
   console.log("\n💡 Pick the right model for the job!");
 }
@@ -161,6 +173,10 @@ async function main() {
   // await testSonnet();
   // await testOpus();
   // await testCompare();
+await testHaiku();
+  await testSonnet();
+  await testOpus();
+  await testCompare();
 }
 
 main().catch(console.error);
